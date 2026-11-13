@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapa de Servicios EBE</title>
+<meta name="description" content="Mapa interactivo de los 659 locales de Educación Básica Especial del Perú (CEBE, PRITE, CREBE, PANETS), con filtros por servicio, gestión, área, departamento y UGEL.">
+
+<link rel="stylesheet" href="leaflet.css" />
+<link rel="stylesheet" href="MarkerCluster.css" />
+<link rel="stylesheet" href="MarkerCluster.Default.css" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+  :root {
+    color-scheme: light;
+    --bg-page:      #f9f9f7;
+    --surface-1:    #fcfcfb;
+    --surface-2:    #ffffff;
+    --surface-3:    #f1f1ee;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:   #898781;
+    --border:       rgba(11,11,11,0.10);
+    --border-strong: #e1e0d9;
+    --accent:       #2a78d6;
+    --accent-ink:   #ffffff;
+    --accent-wash:  rgba(42,120,214,0.10);
+    --shadow: 0 8px 28px rgba(11,11,11,0.14), 0 1px 3px rgba(11,11,11,0.08);
+    --srv-cebe:   #2a78d6;
+    --srv-prite:  #eb6834;
+    --srv-crebe:  #1baf7a;
+    --srv-panets: #4a3aa7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg-page:      #0d0d0d;
+      --surface-1:    #1a1a19;
+      --surface-2:    #221f1e;
+      --surface-3:    #2a2826;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:   #898781;
+      --border:       rgba(255,255,255,0.12);
+      --border-strong: #383835;
+      --accent:       #3987e5;
+      --accent-ink:   #ffffff;
+      --accent-wash:  rgba(57,135,229,0.16);
+      --shadow: 0 10px 30px rgba(0,0,0,0.5);
+      --srv-cebe:   #3987e5;
+      --srv-prite:  #d95926;
+      --srv-crebe:  #199e70;
+      --srv-panets: #9085e9;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg-page:      #0d0d0d;
+    --surface-1:    #1a1a19;
+    --surface-2:    #221f1e;
+    --surface-3:    #2a2826;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:   #898781;
+    --border:       rgba(255,255,255,0.12);
+    --border-strong: #383835;
+    --accent:       #3987e5;
+    --accent-ink:   #ffffff;
+    --accent-wash:  rgba(57,135,229,0.16);
+    --shadow: 0 10px 30px rgba(0,0,0,0.5);
+    --srv-cebe:   #3987e5;
+    --srv-prite:  #d95926;
+    --srv-crebe:  #199e70;
+    --srv-panets: #9085e9;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  h1, h2, h3 { font-family: "Manrope", "Public Sans", sans-serif; margin: 0; }
+
+  /* ---------- Header ---------- */
+  .topbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--surface-1);
+    border-bottom: 1px solid var(--border-strong);
+    z-index: 20;
+  }
+  .topbar .mark {
+    width: 34px; height: 34px; flex: none;
+    border-radius: 9px;
+    background: linear-gradient(155deg, var(--srv-cebe), var(--srv-crebe));
+    display: flex; align-items: center; justify-content: center;
+  }
+  .topbar .mark svg { width: 19px; height: 19px; }
+  .topbar .titles { min-width: 0; }
+  .topbar h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .sub { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar .spacer { flex: 1; }
+  .topbar .total-chip {
+    flex: none;
+    font-size: 12px; font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--accent-wash);
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  @media (max-width: 560px) {
+    .topbar .sub { display: none; }
+    .topbar .total-chip { font-size: 11px; padding: 5px 9px; }
+  }
+
+  /* ---------- Shell ---------- */
+  .shell { flex: 1 1 auto; display: flex; min-height: 0; position: relative; }
+
+  #map { flex: 1 1 auto; min-width: 0; height: 100%; background: var(--surface-3); font-family: "Public Sans", sans-serif; isolation: isolate; }
+
+  /* ---------- Panel (sidebar / drawer) ---------- */
+  .panel {
+    width: 348px; flex: none;
+    background: var(--surface-1);
+    border-right: 1px solid var(--border-strong);
+    display: flex; flex-direction: column;
+    min-height: 0;
+    z-index: 30;
+  }
+  .panel-head {
+    flex: none; padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .panel-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .panel-head h2 { font-size: 14px; font-weight: 700; }
+  .panel-close { display: none; }
+  #resultCount { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  .panel-body { flex: 1 1 auto; overflow-y: auto; padding: 12px 16px 20px; -webkit-overflow-scrolling: touch; }
+
+  .search-wrap { position: relative; margin-bottom: 14px; }
+  .search-input {
+    width: 100%; padding: 10px 12px 10px 34px;
+    border-radius: 10px; border: 1px solid var(--border-strong);
+    background: var(--surface-2); color: var(--text-primary);
+    font-size: 13.5px; font-family: inherit;
+  }
+  .search-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+  .suggestions {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+    background: var(--surface-2); border: 1px solid var(--border-strong);
+    border-radius: 10px; box-shadow: var(--shadow);
+    max-height: 320px; overflow-y: auto; z-index: 40;
+  }
+  .suggest-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 8px 10px; border: none; background: none; text-align: left; cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    font-family: inherit; color: var(--text-primary);
+  }
+  .suggest-item:last-child { border-bottom: none; }
+  .suggest-item:hover, .suggest-item:focus { background: var(--surface-3); }
+  .suggest-text { display: flex; flex-direction: column; min-width: 0; }
+  .suggest-text strong { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .suggest-text small { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .suggest-empty { padding: 10px; font-size: 12.5px; color: var(--text-muted); }
+
+  .section { border-top: 1px solid var(--border-strong); padding-top: 10px; margin-top: 10px; }
+  .section:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  .section-head { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; padding: 4px 0; }
+  .section-head h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+  .section-head .chev { color: var(--text-muted); transition: transform 0.18s ease; font-size: 11px; }
+  .section.collapsed .chev { transform: rotate(-90deg); }
+  .section.collapsed .section-content { display: none; }
+  .section-content { padding-top: 6px; }
+
+  .filter-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 6px 4px; border-radius: 8px; cursor: pointer;
+  }
+  .filter-row:hover { background: var(--surface-3); }
+  .filter-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); flex: none; }
+  .filter-label { font-size: 13px; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+  .filter-label small { font-size: 10.5px; color: var(--text-muted); font-weight: 400; }
+  .filter-row--simple .filter-label { font-size: 12.5px; }
+  .servicio-count { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; flex: none; }
+
+  .swatch { width: 16px; height: 16px; flex: none; display: inline-block; position: relative; }
+  .swatch::before {
+    content: ""; position: absolute; inset: 0; background: var(--sw-color);
+    border: 1.6px solid var(--surface-1);
+    box-shadow: 0 0 0 1px var(--sw-color);
+  }
+  .swatch.shape-circle::before { border-radius: 50%; }
+  .swatch.shape-square::before { border-radius: 3px; }
+  .swatch.shape-triangle::before {
+    background: var(--sw-color); border: none; box-shadow: none;
+    clip-path: polygon(50% 6%, 94% 90%, 6% 90%);
+  }
+  .swatch.shape-diamond::before { border-radius: 3px; transform: rotate(45deg) scale(0.78); }
+  .ms { }
+  .ms-search {
+    width: 100%; padding: 7px 10px; margin-bottom: 6px;
+    border-radius: 8px; border: 1px solid var(--border-strong);
+    background: var(--surface-2); color: var(--text-primary);
+    font-size: 12.5px; font-family: inherit;
+  }
+  .ms-search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ms-actions { display: flex; gap: 10px; margin-bottom: 4px; }
+  .ms-actions button {
+    font-family: inherit; font-size: 11px; font-weight: 600; color: var(--accent);
+    background: none; border: none; padding: 2px 0; cursor: pointer;
+  }
+  .ms-actions button:hover { text-decoration: underline; }
+  .ms-summary { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+  .ms-list { max-height: 176px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+  .ms-empty { padding: 8px; font-size: 12px; color: var(--text-muted); }
+
+  .clear-btn {
+    width: 100%; margin-top: 14px; padding: 9px 12px;
+    border-radius: 9px; border: 1px solid var(--border-strong);
+    background: var(--surface-2); color: var(--text-primary);
+    font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .clear-btn:hover { background: var(--surface-3); }
+
+  .panel-footer { flex: none; padding: 10px 16px; border-top: 1px solid var(--border-strong); font-size: 10.5px; color: var(--text-muted); }
+
+  /* ---------- Popups ---------- */
+  .leaflet-popup-content-wrapper { background: var(--surface-2); color: var(--text-primary); border-radius: 12px; box-shadow: var(--shadow); }
+  .leaflet-popup-tip { background: var(--surface-2); }
+  .leaflet-popup-content { margin: 0; width: auto !important; }
+  .popup-card { padding: 12px 14px; font-family: "Public Sans", sans-serif; }
+  .popup-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.02em; padding: 3px 9px; border-radius: 999px;
+    background: var(--chip-color); color: #fff;
+  }
+  .popup-gestion { font-size: 11px; color: var(--text-secondary); }
+  .popup-title { font-size: 14.5px; font-weight: 700; line-height: 1.3; margin-bottom: 8px; }
+  .pf-list { display: flex; flex-direction: column; gap: 3px; }
+  .pf-row { display: flex; gap: 8px; font-size: 12px; line-height: 1.4; }
+  .pf-k { flex: 0 0 108px; color: var(--text-muted); }
+  .pf-v { flex: 1 1 auto; color: var(--text-primary); }
+
+  /* ---------- Leaflet control theming ---------- */
+  .leaflet-bar, .leaflet-control-zoom a, .leaflet-control-attribution {
+    background: var(--surface-2) !important; color: var(--text-primary) !important;
+    border-color: var(--border-strong) !important;
+  }
+  .leaflet-control-attribution a { color: var(--accent) !important; }
+  .leaflet-control-scale-line { background: var(--surface-2); color: var(--text-primary); border-color: var(--text-secondary); }
+
+  /* ---------- Selector de capas ---------- */
+  .leaflet-control-layers {
+    background: var(--surface-2) !important; color: var(--text-primary);
+    border: 1px solid var(--border-strong) !important; border-radius: 12px !important;
+    box-shadow: var(--shadow) !important; font-family: "Public Sans", sans-serif;
+  }
+  .leaflet-control-layers-toggle {
+    width: 44px !important; height: 44px !important; border-radius: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232a78d6' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M12 3 2 8l10 5 10-5-10-5Z'/%3E%3Cpath d='m2 13 10 5 10-5' opacity='.65'/%3E%3Cpath d='m2 17.5 10 5 10-5' opacity='.35'/%3E%3C/svg%3E") !important;
+    background-size: 22px 22px !important; background-repeat: no-repeat; background-position: center;
+  }
+  .leaflet-control-layers-expanded { padding: 10px 14px 10px 10px !important; color: var(--text-primary) !important; background: var(--surface-2) !important; }
+  .leaflet-control-layers-base::before, .leaflet-control-layers-overlays::before {
+    display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--text-muted); margin: 0 0 4px 2px;
+  }
+  .leaflet-control-layers-base::before { content: "Mapa base"; }
+  .leaflet-control-layers-overlays::before { content: "Capas"; }
+  .leaflet-control-layers label { font-size: 12.5px; padding: 3px 2px; cursor: pointer; }
+  .leaflet-control-layers label span { display: inline-flex; align-items: center; gap: 6px; }
+  .leaflet-control-layers input { accent-color: var(--accent); margin: 0 4px 0 0; }
+  .leaflet-control-layers-separator { border-top-color: var(--border-strong) !important; margin: 8px -14px 8px -10px !important; }
+  .leaflet-relief-pane { mix-blend-mode: multiply; }
+  #map.on-dark-base .boundary-label { color: #fff; text-shadow: 0 0 3px #000, 0 0 6px rgba(0,0,0,.8); }
+
+  /* ---------- Administrative boundary labels ---------- */
+  .boundary-label {
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    font-family: "Public Sans", sans-serif;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    text-shadow: -1px -1px 0 var(--bg-page), 1px -1px 0 var(--bg-page), -1px 1px 0 var(--bg-page), 1px 1px 0 var(--bg-page), 0 0 4px var(--bg-page);
+    pointer-events: none;
+  }
+  .lbl-dep { font-size: 12.5px; font-weight: 800; letter-spacing: 0.04em; color: var(--text-primary); }
+  .lbl-prov { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; opacity: 0.92; }
+  .lbl-dist { font-size: 10px; font-weight: 600; letter-spacing: 0.02em; opacity: 0.88; }
+
+  /* ---------- Cluster / marker icons ---------- */
+  .ebe-marker { display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35)); }
+  .cluster-pin {
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    border: 2.5px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  }
+  .cluster-pin span { color: #fff; font-weight: 700; font-size: 12px; font-family: "Public Sans", sans-serif; }
+
+  /* ---------- Mobile toggle + scrim ---------- */
+  .panel-toggle {
+    display: none;
+    position: fixed; left: 16px; bottom: max(16px, env(safe-area-inset-bottom));
+    z-index: 50;
+    align-items: center; gap: 8px;
+    padding: 11px 16px; border-radius: 999px; border: none;
+    background: var(--text-primary); color: var(--bg-page);
+    font-family: inherit; font-weight: 700; font-size: 13px;
+    box-shadow: var(--shadow); cursor: pointer;
+  }
+  .panel-toggle .count-badge {
+    background: var(--accent); color: #fff; border-radius: 999px;
+    padding: 1px 7px; font-size: 11px; font-variant-numeric: tabular-nums;
+  }
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 25; }
+
+  @media (max-width: 860px) {
+    .panel-toggle { display: inline-flex; }
+    .panel {
+      position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+      width: auto; max-height: 82vh; height: auto;
+      border-right: none; border-top-left-radius: 16px; border-top-right-radius: 16px;
+      transform: translateY(105%); transition: transform 0.25s ease;
+      box-shadow: var(--shadow);
+    }
+    .panel.open { transform: translateY(0); }
+    .panel-body { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+    .panel-close { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; border: none; background: var(--surface-3); color: var(--text-primary); cursor: pointer; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="mark">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C7.6 2 4 5.4 4 9.6 4 15 12 22 12 22s8-7 8-12.4C20 5.4 16.4 2 12 2Z" fill="#fff" fill-opacity="0.95"/><circle cx="12" cy="9.6" r="3.1" fill="var(--srv-cebe)"/></svg>
+  </div>
+  <div class="titles">
+    <h1>Mapa de Servicios EBE</h1>
+    <div class="sub">DEBE · MINEDU — locales de Educación Básica Especial</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="total-chip" id="headerTotal">659 locales</div>
+</div>
+
+<div class="shell">
+  <aside class="panel" id="panel">
+    <div class="panel-head">
+      <div class="panel-head-row">
+        <h2>Filtros y leyenda</h2>
+        <button class="panel-close" id="panelClose" aria-label="Cerrar filtros">✕</button>
+      </div>
+      <div id="resultCount">Mostrando los 659 locales</div>
+    </div>
+    <div class="panel-body">
+      <div class="search-wrap">
+        <span class="search-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </span>
+        <input type="text" id="mainSearch" class="search-input" placeholder="Buscar IIEE, distrito o UGEL…" autocomplete="off" />
+        <div class="suggestions" id="suggestions" hidden></div>
+      </div>
+
+      <div class="section" id="secServicio">
+        <div class="section-head"><h3>Tipo de servicio</h3><span class="chev">▾</span></div>
+        <div class="section-content" id="servicioFilter"></div>
+      </div>
+
+      <div class="section" id="secGestion">
+        <div class="section-head"><h3>Tipo de gestión</h3><span class="chev">▾</span></div>
+        <div class="section-content" id="gestionFilter"></div>
+      </div>
+
+      <div class="section" id="secArea">
+        <div class="section-head"><h3>Área</h3><span class="chev">▾</span></div>
+        <div class="section-content" id="areaFilter"></div>
+      </div>
+
+      <div class="section" id="secDpto">
+        <div class="section-head"><h3>Departamento</h3><span class="chev">▾</span></div>
+        <div class="section-content">
+          <div class="ms" id="dptoFilter">
+            <input type="text" class="ms-search" placeholder="Buscar departamento…" />
+            <div class="ms-actions"><button type="button" class="ms-all">Todas</button><button type="button" class="ms-none">Ninguna</button></div>
+            <div class="ms-summary"></div>
+            <div class="ms-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section" id="secUgel">
+        <div class="section-head"><h3>UGEL / DRE</h3><span class="chev">▾</span></div>
+        <div class="section-content">
+          <div class="ms" id="ugelFilter">
+            <input type="text" class="ms-search" placeholder="Buscar UGEL…" />
+            <div class="ms-actions"><button type="button" class="ms-all">Todas</button><button type="button" class="ms-none">Ninguna</button></div>
+            <div class="ms-summary"></div>
+            <div class="ms-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="clear-btn" id="clearFilters">Restablecer todos los filtros</button>
+    </div>
+    <div class="panel-footer">Fuente: padrón de locales EBE (ESCALE, corte 09/09/2026), 659 locales activos, 25 departamentos · Base cartográfica: Esri, OpenTopoMap y © colaboradores de OpenStreetMap</div>
+  </aside>
+
+  <div id="map"></div>
+
+  <button type="button" class="panel-toggle" id="panelToggle">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    Filtros
+    <span class="count-badge" id="toggleCount">659</span>
+  </button>
+  <div class="scrim" id="scrim" hidden></div>
+</div>
+
+<script src="leaflet.min.js"></script>
+<script src="leaflet.markercluster.min.js"></script>
+<script src="data.js"></script>
+<script src="b_departamento.js"></script>
+<script src="b_provincia.js"></script>
+<script src="b_distrito.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
