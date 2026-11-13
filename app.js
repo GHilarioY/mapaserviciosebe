@@ -188,18 +188,18 @@
   function popupHtml(d) {
     var meta = SERVICIO_META[d.srv];
     var lines = [];
-    function row(label, value) {
+    function row(label, value, wide) {
       if (!value) return;
-      lines.push('<div class="pf-row"><span class="pf-k">' + label + '</span><span class="pf-v">' + value + '</span></div>');
+      lines.push('<div class="pf-row' + (wide ? ' pf-row--wide' : '') + '"><span class="pf-k">' + label + '</span><span class="pf-v">' + value + '</span></div>');
     }
-    row('Servicio', meta.full);
+    row('Servicio', meta.full, true);
     row('UGEL', escapeHtml(d.ugel));
     row('DRE', escapeHtml(d.dre));
     row('Departamento', escapeHtml(d.dpto));
     row('Provincia', escapeHtml(d.prov));
     row('Distrito', escapeHtml(d.dist));
-    row('Dirección', escapeHtml(d.dir) + (d.pob ? ' — ' + escapeHtml(d.pob) : ''));
-    row('Nivel / modalidad', escapeHtml(d.niv));
+    row('Dirección', escapeHtml(d.dir) + (d.pob ? ' — ' + escapeHtml(d.pob) : ''), true);
+    row('Nivel / modalidad', escapeHtml(d.niv).replace(/ \| /g, '<br>'), true);
     row('Área', escapeHtml(d.area));
     row('Turno', escapeHtml(d.tur));
     row('Código de local', String(d.id));
@@ -210,9 +210,22 @@
       '<div class="pf-list">' + lines.join('') + '</div></div>';
   }
 
+  // Tamaño de la ventanita según la pantalla: en celular ocupa casi todo el ancho y se desplaza por dentro.
+  function popupOptions() {
+    var w = window.innerWidth, h = window.innerHeight, small = w < 560;
+    return {
+      className: 'ebe-popup',
+      maxWidth: small ? w - 32 : 340,
+      minWidth: small ? Math.min(w - 32, 340) : 290,
+      maxHeight: small ? Math.round(h * 0.55) : null,
+      autoPanPaddingTopLeft: L.point(16, small ? 70 : 24),
+      autoPanPaddingBottomRight: L.point(small ? 16 : 70, small ? 90 : 24)
+    };
+  }
+
   DATA.forEach(function (d) {
     var m = L.marker([d.lat, d.lon], { icon: iconFor(d.srv), srv: d.srv });
-    m.bindPopup(popupHtml(d), { maxWidth: 340, minWidth: 290, className: 'ebe-popup' });
+    m.bindPopup(popupHtml(d), popupOptions());
     markerIndex[d._key] = m;
   });
 
