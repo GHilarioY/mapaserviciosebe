@@ -207,7 +207,16 @@
       '<div class="popup-head"><span class="chip" style="--chip-color:' + meta.color + '">' + meta.label + '</span>' +
       '<span class="popup-gestion">' + (GESTION_SHORT[d.g] || escapeHtml(d.g)) + '</span></div>' +
       '<h3 class="popup-title">' + escapeHtml(d.n) + '</h3>' +
-      '<div class="pf-list">' + lines.join('') + '</div></div>';
+      '<div class="popup-actions">' +
+        '<a class="pa-btn pa-btn--primary" target="_blank" rel="noopener" href="https://www.google.com/maps/@?api=1&amp;map_action=pano&amp;viewpoint=' + d.lat + ',' + d.lon + '">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><path d="M9.5 21v-6.5L8 13v-3.5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2V13l-1.5 1.5V21"/></svg>' +
+          'Ver en Street View</a>' +
+        '<a class="pa-btn" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&amp;destination=' + d.lat + ',' + d.lon + '">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 21 3l-8 18-2-8-8-2Z"/></svg>' +
+          'Cómo llegar</a>' +
+      '</div>' +
+      '<div class="pf-list">' + lines.join('') + '</div>' +
+      '<div class="pa-note">Abre Google Maps. Algunas zonas rurales no tienen imágenes de Street View.</div></div>';
   }
 
   // Tamaño de la ventanita según la pantalla: en celular ocupa casi todo el ancho y se desplaza por dentro.
